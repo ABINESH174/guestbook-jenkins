@@ -16,13 +16,21 @@ pipeline {
             }
         }
         stage('Cleanup Environment') {
-            steps {
-                echo 'Pruning old images to save disk space on Laptop 2...'
-                sh 'docker image prune -f'
-                // Stop everything to ensure a clean slate
-                sh 'docker compose down || true'
-            }
-        }
+   	    steps {
+        	dir("${env.PROJECT_DIR}") {
+            	echo 'Force removing existing guestbook containers to prevent naming conflicts...'
+            	// This stops the project Jenkins knows about
+            	sh 'docker compose down || true' 
+            
+            	// This is the "Nuclear Option": 
+            	// It force-removes any container named guestbook-db, backend, or frontend 
+            	// even if they were started manually earlier.
+            	sh 'docker rm -f guestbook-db guestbook-backend guestbook-frontend guestbook-gateway || true'
+            
+            	sh 'docker image prune -f'
+        	}
+    	    }
+	}
 
         stage('Database Tier') {
             steps {
