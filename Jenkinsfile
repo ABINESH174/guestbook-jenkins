@@ -7,12 +7,20 @@ pipeline {
     }
 
     stages {
+	stage('Pre-flight Check') {
+            steps {
+                // This will tell us exactly what the agent sees
+                sh 'whoami'
+                sh 'docker --version'
+                sh 'docker compose version'
+            }
+        }
         stage('Cleanup Environment') {
             steps {
                 echo 'Pruning old images to save disk space on Laptop 2...'
                 sh 'docker image prune -f'
                 // Stop everything to ensure a clean slate
-                sh 'docker-compose down || true'
+                sh 'docker compose down || true'
             }
         }
 
@@ -20,7 +28,7 @@ pipeline {
             steps {
                 dir("${env.PROJECT_DIR}") {
                     echo 'Starting MongoDB...'
-                    sh 'docker-compose up -d guestbook-db'
+                    sh 'docker compose up -d guestbook-db'
                     // Give Mongo 10 seconds to initialize its internal files
                     sh 'sleep 10' 
                 }
@@ -33,8 +41,8 @@ pipeline {
                     steps {
                         dir("${env.PROJECT_DIR}") {
                             echo 'Building Spring Boot Backend...'
-                            sh 'docker-compose build backend'
-                            sh 'docker-compose up -d backend'
+                            sh 'docker compose build backend'
+                            sh 'docker compose up -d backend'
                         }
                     }
                 }
@@ -42,8 +50,8 @@ pipeline {
                     steps {
                         dir("${env.PROJECT_DIR}") {
                             echo 'Building React & Nginx...'
-                            sh 'docker-compose build frontend gateway'
-                            sh 'docker-compose up -d frontend gateway'
+                            sh 'docker compose build frontend gateway'
+                            sh 'docker compose up -d frontend gateway'
                         }
                     }
                 }
@@ -55,6 +63,4 @@ pipeline {
                 sh 'docker ps'
                 echo 'Guestbook is live at http://localhost'
             }
-        }
-    }
 }
