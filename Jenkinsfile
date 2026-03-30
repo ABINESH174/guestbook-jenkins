@@ -28,7 +28,7 @@ pipeline {
             steps {
                 dir("${env.PROJECT_DIR}") {
                     echo 'Starting MongoDB...'
-                    sh 'docker compose up -d guestbook-db'
+                    sh 'docker compose up -d mongodb'
                     // Give Mongo 10 seconds to initialize its internal files
                     sh 'sleep 10' 
                 }
