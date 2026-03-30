@@ -63,4 +63,6 @@ pipeline {
                 sh 'docker ps'
                 echo 'Guestbook is live at http://localhost'
             }
+	}
+    }
 }
