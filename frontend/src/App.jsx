@@ -34,7 +34,7 @@ function App() {
 
   return (
     <div style={{ padding: '20px', fontFamily: 'Arial' }}>
-      <h1>Guestbook (Distributed Build by devops Test 1)</h1>
+      <h1>Guestbook (Distributed Build by devops)</h1>
       <form onSubmit={handleSubmit}>
         <input 
           value={message} 
