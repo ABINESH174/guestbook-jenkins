@@ -69,7 +69,7 @@ pipeline {
         stage('Final Verification') {
             steps {
                 sh 'docker ps'
-                echo 'Guestbook is live at http://localhost'
+                echo 'Guestbook is live at http://private.ip/'
             }
 	}
     }
