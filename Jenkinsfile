@@ -9,6 +9,8 @@ pipeline {
     stages {
         stage('K8s Health Check') {
             steps {
+		// Automatically fix stale kubeconfigs
+	        sh 'minikube update-context'
                 // Ensure the agent can actually talk to the cluster
                 sh 'kubectl cluster-info'
                 sh 'minikube status'
