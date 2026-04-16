@@ -2,75 +2,58 @@ pipeline {
     agent { label 'agent-laptop-2' }
 
     environment {
-        // This is where Jenkins pulls the code on Laptop 2
-        PROJECT_DIR = "${WORKSPACE}" 
+        // We're pointing to your existing K8s manifests
+        K8S_DIR = "${WORKSPACE}/k8s" 
     }
 
     stages {
-	stage('Pre-flight Check') {
+        stage('K8s Health Check') {
             steps {
-                // This will tell us exactly what the agent sees
-                sh 'whoami'
-                sh 'docker --version'
-                sh 'docker compose version'
+                // Ensure the agent can actually talk to the cluster
+                sh 'kubectl cluster-info'
+                sh 'minikube status'
             }
         }
-        stage('Cleanup Environment') {
-   	    steps {
-        	dir("${env.PROJECT_DIR}") {
-            	echo 'Force removing existing guestbook containers to prevent naming conflicts...'
-            	// This stops the project Jenkins knows about
-            	sh 'docker compose down || true' 
-            
-            	// This is the "Nuclear Option": 
-            	// It force-removes any container named guestbook-db, backend, or frontend 
-            	// even if they were started manually earlier.
-            	sh 'docker rm -f guestbook-db guestbook-backend guestbook-frontend guestbook-gateway || true'
-            
-            	sh 'docker image prune -f'
-        	}
-    	    }
-	}
 
-        stage('Database Tier') {
+        stage('Build Images (Local Node)') {
             steps {
-                dir("${env.PROJECT_DIR}") {
-                    echo 'Starting MongoDB...'
-                    sh 'docker compose up -d mongodb'
-                    // Give Mongo 10 seconds to initialize its internal files
-                    sh 'sleep 10' 
+                script {
+                    // This is CRITICAL: We point the terminal's docker env to Minikube's 
+                    // internal docker registry so K8s can see the images we build.
+                    sh 'eval $(minikube -p minikube docker-env) && docker build -t guestbook-backend:v1 ./backend'
+                    sh 'eval $(minikube -p minikube docker-env) && docker build -t guestbook-frontend:v1 ./frontend'
                 }
             }
         }
 
-        stage('Build & Deploy Apps') {
-            parallel {
-                stage('Backend Service') {
-                    steps {
-                        dir("${env.PROJECT_DIR}") {
-                            echo 'Building Spring Boot Backend...'
-                            sh 'docker compose build backend'
-                            sh 'docker compose up -d backend'
-                        }
-                    }
-                }
-                stage('Frontend & Gateway') {
-                    steps {
-                        dir("${env.PROJECT_DIR}") {
-                            echo 'Building React & Nginx...'
-                            sh 'docker compose build frontend gateway'
-                            sh 'docker compose up -d frontend gateway'
-                        }
-                    }
-                }
+        stage('Deploy to Kubernetes') {
+            steps {
+                echo 'Applying Manifests...'
+                // Apply the DB, Services, Deployments, and Ingress
+                sh "kubectl apply -f ${env.K8S_DIR}/"
             }
         }
 
-        stage('Final Verification') {
+        stage('Rollout Verification') {
             steps {
-                sh 'docker ps'
-                echo 'Guestbook is live at http://private.ip/'
+                echo 'Waiting for pods to stabilize...'
+                sh 'kubectl rollout status deployment/guestbook-backend'
+                sh 'kubectl rollout status deployment/guestbook-frontend'
+                
+                script {
+                    // Final Green Flag check
+                    sh 'kubectl get pods'
+                    sh 'kubectl get svc'
+                    echo "Application is accessible via Laptop 2 LAN IP at port 80"
+                }
             }
-	}
+        }
+    }
+
+    post {
+        failure {
+            echo 'Deployment failed. Fetching logs...'
+            sh 'kubectl logs --tail=20 -l app=guestbook-backend'
+        }
     }
 }
